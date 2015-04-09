@@ -57,8 +57,10 @@ public class SimpleChatServer extends Agent {
         @Override
         public void action() {
             ACLMessage msg = myAgent.receive();
-            if (msg == null)
+            if (msg == null) {
+                block();
                 return;
+            }
 
             //vypis prijate zpravy
             System.out.println("[" + new Date().toString() + "] " + msg.getSender().getName() + ": " + msg.getContent());
