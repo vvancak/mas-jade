@@ -47,18 +47,18 @@ public class Utils {
         ArrayList<Goal> goals = ai.getGoals();
         ArrayList<BookInfo> books = ai.getBooks();
 
-        boolean allGoals = true;
+        int nBooks = 0;
         for (Goal g : goals) {
 
             for (int i = 0; i < books.size(); i++) {
                 if (books.get(i).getBookName().equals(g.getBook().getBookName())) {
+                    nBooks++;
                     break;
                 }
-                allGoals = false;
             }
         }
 
-        return allGoals;
+        return nBooks == goals.size();
 
     }
 }
