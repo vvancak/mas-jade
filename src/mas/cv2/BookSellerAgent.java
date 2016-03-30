@@ -33,7 +33,6 @@ import jade.lang.acl.MessageTemplate;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.proto.*;
-import sun.plugin2.message.Message;
 
 import java.util.*;
 
