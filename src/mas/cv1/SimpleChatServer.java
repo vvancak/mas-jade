@@ -10,31 +10,31 @@ import jade.lang.acl.ACLMessage;
 
 import java.util.Date;
 
-//jednoduchy agent, ktery se zaregistruje s DF a vypisuje prijate zpravy, zaroven je posila vsem klientum, ktere najde
+//a simple agent which registers itself to the DF, prints received messages and forwards themto other agents
 public class SimpleChatServer extends Agent {
 
     @Override
     protected void setup() {
         super.setup();
 
-        //popis sluzby messaging-server
+        //messaging-server service description
         ServiceDescription sd = new ServiceDescription();
         sd.setType("messaging-server");
         sd.setName("server");
 
-        //popis tohoto agenta a sluzeb, ktere nabizi
+        //description of this agents and the services it provides
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(this.getAID());
         dfd.addServices(sd);
 
-        //zaregistrovani s DF
+        //registration to DF
         try {
             DFService.register(this, dfd);
         } catch (FIPAException e) {
             e.printStackTrace();
         }
 
-        //pridani chovani, ktere se stara o prijem, vypis a preposlani zprav
+        //add behavior which takes care of the receiving and forwarding of messages
         this.addBehaviour(new MessageReceivingBehaviour());
     }
 
@@ -42,7 +42,7 @@ public class SimpleChatServer extends Agent {
     protected void takeDown() {
         super.takeDown();
 
-        //nezapomenout se nakonec odregistrovat z DF
+        //derigister at the end
         try {
             DFService.deregister(this);
         } catch (FIPAException e) {
@@ -51,7 +51,7 @@ public class SimpleChatServer extends Agent {
     }
 
 
-    //chovani, ktere vypisuje prijate zpravy a posila je vsem klientum
+    //a behavior which receives, prints and forwards the messages
     class MessageReceivingBehaviour extends CyclicBehaviour {
 
         @Override
@@ -62,27 +62,27 @@ public class SimpleChatServer extends Agent {
                 return;
             }
 
-            //vypis prijate zpravy
+            //print the received message
             System.out.println("[" + new Date().toString() + "] " + msg.getSender().getName() + ": " + msg.getContent());
 
-            //vytvoreni popisu sluzby messaging-client
+            //description of the messaging-client service (for searching)
             ServiceDescription sd = new ServiceDescription();
             sd.setType("messaging-client");
 
-            //vytvoreni popisu agenta, ktery poskytuje messaging-client
+            //description of the client agents
             DFAgentDescription dfd = new DFAgentDescription();
             dfd.addServices(sd);
 
             try {
 
-                //vyhledani klientu
+                //search for the clients
                 DFAgentDescription[] clients = DFService.search(myAgent, dfd);
 
-                //vytvoreni zpravy pro klienty
+                //create the message for the clients
                 ACLMessage toClients = new ACLMessage(ACLMessage.INFORM);
                 toClients.setContent(msg.getSender().getName() + ": " + msg.getContent());
 
-                //pridani vsech klientu mezi prijemce
+                //add all clients to the recipients and send the message
                 for (DFAgentDescription client : clients) {
                     toClients.addReceiver(client.getName());
                 }

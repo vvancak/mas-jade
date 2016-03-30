@@ -9,14 +9,14 @@ import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
 
 
-//jednoduchy agent, ktery kazdych 5 vterin posila zpravu prvnimu serveru, ktery najde
+//a simple agent which sends "hi" message every 5 seconds to the messaging server
 public class SimpleChatClient extends Agent {
 
     @Override
     protected void setup() {
         super.setup();
 
-        //pridani chovani klienta -- posila zpravu serveru kazdych 5 vterin
+        //add the sending behavior
         this.addBehaviour(new MsgSendingBehavior(this));
     }
 
@@ -25,7 +25,7 @@ public class SimpleChatClient extends Agent {
         super.takeDown();
     }
 
-    //jednoduche chovani, ktere kazdych 5 vterin posle zpravu serveru
+    //simple behavior which sends a message every 5 seconds
     class MsgSendingBehavior extends TickerBehaviour {
 
         public MsgSendingBehavior(Agent a) {
@@ -35,22 +35,22 @@ public class SimpleChatClient extends Agent {
         @Override
         public void onTick() {
 
-            //vytvoreni popisu sluzby serveru
+            //messaging-server service description
             ServiceDescription sd = new ServiceDescription();
             sd.setType("messaging-server");
 
-            //vytvoreni popisu agenta, ktery sluzbu poskytuje
+            //server agent description
             DFAgentDescription dfd = new DFAgentDescription();
             dfd.addServices(sd);
 
             try {
-                //vyhledani vsech serveru
+                //search for all servers
                 DFAgentDescription[] servers = DFService.search(myAgent, dfd);
                 if (servers.length == 0) {
                     System.err.println("No servers found");
                     return;
                 }
-                //vytvoreni zpravy a poslani prvnimu serveru ze seznamu
+                //create the message and send it to the first server in the list
                 ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
                 msg.addReceiver(servers[0].getName());
                 msg.setContent("Hi");
