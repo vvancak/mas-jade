@@ -69,13 +69,13 @@ public class BookSellerAgent extends Agent {
 			fe.printStackTrace();
 		}
 
-        //chovani, ktere se stara o zpracovani pozadavku na seznam knih
+        //behavior which processes the requests for the lists of books
         addBehaviour(new ListAvailableBooks(this, new MessageTemplate(new MatchStart("get-books-list"))));
 
-        //chovani, ktere se stara o prodej jedne knihy
+        //behavior which sells a book
         addBehaviour(new SellBook(this, new MessageTemplate(new MatchStart("sell-book"))));
 
-        //chovani, ktere se stara o vraceni nabidky na knihu a pripadny prodej knihy
+        //behavior which proposes a price for a book and sells the book if the proposal is accepted
         addBehaviour(new OfferBookPrices(this, MessageTemplate.MatchPerformative(ACLMessage.CFP)));
 
 	}
@@ -107,7 +107,7 @@ public class BookSellerAgent extends Agent {
 		System.out.println("Seller-agent "+getAID().getName()+" terminating.");
 	}
 
-    //MessageTemplate, ktery matchuje zpravy, ktere zacinaji danym retezcem -- hodi se pro odliseni ruznych pozadavku
+    //MessageTemplate, which matches messages starting with a given string
     private class MatchStart implements MessageTemplate.MatchExpression {
 
         String start;
@@ -124,7 +124,7 @@ public class BookSellerAgent extends Agent {
         }
     }
 
-    //chovani, ktere se stara o prodej dane knihy
+    //behavior which sells a single book
     private class SellBook extends AchieveREResponder {
 
         public SellBook(Agent a, MessageTemplate mt) {
@@ -147,22 +147,21 @@ public class BookSellerAgent extends Agent {
 
             ACLMessage reply = request.createReply();
             reply.setPerformative(ACLMessage.INFORM);
-            reply.setContent("sold " + fields[1]);  //tomuhle dneska rikame prodej, predstavte si, ze tu knihu
-                                                    // mate, ani platit jste nemuseli :)
+            reply.setContent("sold " + fields[1]);  //this is what we call "sell" today, imagine you have to book now :)
             return reply;
         }
     }
 
 
-    //trida, ktera se stara o vyrizeni pozadavku na seznam knih
+    //behavior which processes the request for the lists of books
     private class ListAvailableBooks extends AchieveREResponder {
 
         public ListAvailableBooks(Agent a, MessageTemplate mt) {
             super(a, mt);
         }
 
-        //pozadavek na seznam knih, bud muzeme vratit rovnou INFORM se senznamem, nebo jen slibime, ze seznam posleme
-        //(AGREE, jako zde)
+        //request for list of books, we can either returs the list with an INFORM or promise to return it later with
+        //an AGREE, like here//
         @Override
         protected ACLMessage handleRequest(ACLMessage request) throws NotUnderstoodException, RefuseException {
 
@@ -177,13 +176,13 @@ public class BookSellerAgent extends Agent {
             return reply;
         }
 
-        //tady pripravime zpravu se seznamem knih a posleme ji, parametr response je nase AGREE zprava
+        //here we prepare the message and send it, the 'response' parameter is our AGREE message
         @Override
         protected ACLMessage prepareResultNotification(ACLMessage request, ACLMessage response) throws FailureException {
 
             StringBuilder books = new StringBuilder();
 
-            //knihy oddelime "|", aby se to hure matchovalo pomoci regexpu ;)
+            //books are delimited by "|"
             for (Object book: catalogue.keySet()) {
                 books.append(book.toString() + "|");
             }
@@ -196,15 +195,15 @@ public class BookSellerAgent extends Agent {
         }
     }
 
-    //implementace contract-net respondera, na dotaz posle nabidku ceny, za kterou knihu proda a ceka
-    //na rozhodnuti initiatora
+    //implementation of the contract-net responder, it waits for a CFP, proposes a price and then waits for the decision
+    //of the initiator
     private class OfferBookPrices extends ContractNetResponder {
 
         public OfferBookPrices(Agent a, MessageTemplate mt) {
             super(a, mt);
         }
 
-        //zpracovani dotazu na cenu knihy
+        //process the request for the price of books
         @Override
         protected ACLMessage handleCfp(ACLMessage cfp) throws RefuseException, FailureException, NotUnderstoodException {
 
@@ -221,7 +220,7 @@ public class BookSellerAgent extends Agent {
 
             String bookTitle = fields[1];
 
-            //kdyz knihu mame v katalogu, nabidneme nasi cenu
+            //if we have the book, we offer our price
             if (catalogue.containsKey(bookTitle)) {
                 ACLMessage reply = cfp.createReply();
                 reply.setPerformative(ACLMessage.PROPOSE);
@@ -232,7 +231,7 @@ public class BookSellerAgent extends Agent {
             throw new RefuseException("book not available");
         }
 
-        //agent prijal nasi nabidku, ted musime knihu prodat (pokud ji jeste mame)
+        //the agent accepted our request, we have to sell the book now (if we still have it)
         @Override
         protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
 
@@ -251,7 +250,7 @@ public class BookSellerAgent extends Agent {
             return reply;
         }
 
-        //agent nasi nabidku neprijal
+        //the initiator rejected our proposal
         @Override
         protected void handleRejectProposal(ACLMessage cfp, ACLMessage propose, ACLMessage reject) {
             System.out.println("Agent " + cfp.getSender() + " rejected the proposal :(");

@@ -52,7 +52,7 @@ public class BookBuyerAgent extends Agent {
 		// Printout a welcome message
 		System.out.println("Hello! Buyer-agent "+getAID().getName()+" is ready.");
 
-        // seznam prodavajicih agentu
+        // list of book selling agents
         DFAgentDescription template = new DFAgentDescription();
         ServiceDescription sd = new ServiceDescription();
         sd.setType("book-selling");
@@ -70,7 +70,7 @@ public class BookBuyerAgent extends Agent {
             fe.printStackTrace();
         }
 
-        //zeptat se vsech agentu na knihy, ktere nabizeji k prodeji
+        //ask all agents about the books they offer for sale
         if (sellerAgents.length > 0) {
             ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
             for (AID a : sellerAgents) {
@@ -80,7 +80,7 @@ public class BookBuyerAgent extends Agent {
             addBehaviour(new ListBooks(this, msg));
         }
 
-        //zeptat se vsech prodvajicich na cenu knihy LOTR a koupit od nejlevnejsiho
+        //ask everyone for the price of LOTR and buy it from the cheapest one
         if (sellerAgents.length > 0) {
             ACLMessage msg = new ACLMessage(ACLMessage.CFP);
             for (AID a : sellerAgents) {
@@ -94,66 +94,65 @@ public class BookBuyerAgent extends Agent {
 
 	}
 
-    //chovani, ktere se postara o zjisteni seznamu knih prodavanych danym agentem/agenty
+    //a behavior which obtains the list of books sold by an agent or a set of agents
     private class ListBooks extends AchieveREInitiator {
 
         public ListBooks(Agent a, ACLMessage msg) {
             super(a, msg);
         }
 
-        //tady zjistime, kteri agenti nam slibili poslat seznam knih, zprava agree je nepovinna, takze je mozne, ze se tahle
-        //metoda vubec nezavola (v tomhle pripade ji prodavajici vzdy posila, takze se zavola}
+        //here, we will find out, who promised to send the list of books, the AGREE message is optional, so it is
+        //possible this method will not be called (in our case, the seller send the message, so it will be called)
         @Override
         protected void handleAgree(ACLMessage agree) {
             System.out.println("Agent " + agree.getSender() + " agreed to send the list of books");
         }
 
-        //tady se dozvime, ze nektery z agentu nam nechce seznam knih poslat
+        //this method is called if an agent refuses to send the list of books
         @Override
         protected void handleRefuse(ACLMessage refuse) {
             System.out.println("Agent " + refuse.getSender() + " refused to send the list of books");
         }
 
-        //tady muzeme zpracovat jednotlive odpovedi -- seznamy knih od jednotlivych prodavajicich
+        //here, we can process the lists of books from the responders
         @Override
         protected void handleInform(ACLMessage inform) {
             System.out.println("Agent " + inform.getSender() + " List of books: " + inform.getContent());
         }
 
-        //tahle metoda se zavola, kdyz dostaneme vysledky (seznamy knih) od vsech agentu, asi je to dobre misto na vybrani
-        //si jedne knihy a naprogramovani jejiho nakupu od prodavajiciho
+        //this method is called after we receive the messages from all reponders, it has a vector of all the messages
+        //as a paramter again; this is a good place to select one book and buy it from a seller
         @Override
         protected void handleAllResultNotifications(Vector resultNotifications) {
             System.out.println("All replies received");
         }
     }
 
-    //chovani, ktere se napred vsech agentu zepta na cenu knihy a nakonec ji koupi od toho, kdo ji prodava nejlevneji
+    //this behavior asks the seller agents for a book and buys it from the cheapest one
     private class BuyBook extends ContractNetInitiator {
 
         public BuyBook(Agent a, ACLMessage cfp) {
             super(a, cfp);
         }
 
-        //tady muzeme jednotlive zpracovavat nabidky
+        //here, we can process each proposal
         @Override
         protected void handlePropose(ACLMessage propose, Vector acceptances) {
             System.out.println("Agent: " + propose.getSender().getName() + " proposed " + propose.getContent());
         }
 
-        //tohle je posledni krok, vybrani agenti nam oznamuji, ze dokoncili pozadavek, ktery jsme na ne meli a posilaji
-        //vysledek -- to, ze nam prodali knihu
+        //this is the last step, the agents inform us they finished the action - sold us the book
         @Override
         protected void handleInform(ACLMessage inform) {
             System.out.println("Agent: " + inform.getSender().getName() + " informed " + inform.getContent());
         }
 
-        //tady muzeme zpracovat vsechny nabidky najednou
+        //here, we process all the proposals at once
         @Override
         protected void handleAllResponses(Vector responses, Vector acceptances) {
             System.out.println("Got all responses");
 
-            //najdeme nejlepsi cenu
+            //find the cheapest price
             int bestPrice = Integer.MAX_VALUE;
             ACLMessage bestResponse = null;
             for (int i = 0; i < responses.size(); i++) {
@@ -167,7 +166,7 @@ public class BookBuyerAgent extends Agent {
                 }
             }
 
-            //prijmeme nabidku pouze od agenta, ktery nabidl nejlepsi cenu, ostatnim posleme odmitnuti
+            //we accept the proposal from the cheapest agent and reject all other proposals
             for (int i = 0; i < responses.size(); i++) {
                 ACLMessage response = (ACLMessage)responses.get(i);
                 ACLMessage reply = response.createReply();
