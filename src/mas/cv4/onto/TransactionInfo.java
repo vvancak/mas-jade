@@ -6,7 +6,7 @@ import jade.lang.acl.ACLMessage;
 /**
  * Created by Martin Pilat on 13.2.14.
  *
- * Informace o transakci, nikdy se nikam neposila.
+ * Information about a transaction, never actually sent
  */
 public class TransactionInfo implements Concept {
 

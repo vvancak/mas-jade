@@ -25,9 +25,10 @@ import java.util.*;
 /**
  * Created by Martin Pilat on 16.4.14.
  *
- * Jednoducha (testovaci) verze obchodujiciho agenta. Agent neobchoduje nijak rozumne, stara se pouze o to, aby
- * nenabizel knihy, ktere nema. (Ale stejne se muze stat, ze obcas nejakou knihu zkusi prodat dvakrat, kdyz o ni pozadaji
- * dva agenti rychle po sobe.)
+ * A simple (testing) version of the trading agent. The agent does not trade in any reasonable way, it only ensures it
+ * does not sell bosks it does not own (but it can still happed from time to time if two agents asks for the same book
+ * at the same time).
+ *
  */
 public class BookTrader extends Agent {
 
@@ -44,28 +45,28 @@ public class BookTrader extends Agent {
     protected void setup() {
         super.setup();
 
-        //napred je potreba rict agentovi, jakym zpusobem jsou zpravy kodovany, a jakou pouzivame ontologii
+        //register the codec and the ontology with the content manager
         this.getContentManager().registerLanguage(codec);
         this.getContentManager().registerOntology(onto);
 
-        //popis sluzby book-trader
+        //book-trader service description
         ServiceDescription sd = new ServiceDescription();
         sd.setType("book-trader");
         sd.setName("book-trader");
 
-        //popis tohoto agenta a sluzeb, ktere nabizi
+        //description of this agent and the services it provides
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(this.getAID());
         dfd.addServices(sd);
 
-        //zaregistrovani s DF
+        //register to DF
         try {
             DFService.register(this, dfd);
         } catch (FIPAException e) {
             e.printStackTrace();
         }
 
-        //pridame chovani, ktere bude cekat na zpravu o zacatku obchodovani
+        //add behavior which waits for the StartTrading message
         addBehaviour(new StartTradingBehaviour(this, MessageTemplate.MatchPerformative(ACLMessage.REQUEST)));
     }
 
@@ -79,7 +80,7 @@ public class BookTrader extends Agent {
         }
     }
 
-    // ceka na zpravu o zacatku obchodovani a potom prida obchodovaci chovani
+    // waits for the StartTrading message and adds the trading behavior
     class StartTradingBehaviour extends AchieveREResponder {
 
 
@@ -99,10 +100,10 @@ public class BookTrader extends Agent {
                 Action a = (Action)ce;
 
 
-                //dostali jsme info, ze muzeme zacit obchodovat
+                //we got the request to start trading
                 if (a.getAction() instanceof StartTrading) {
 
-                    //zjistime si, co mame, a jake jsou nase cile
+                    //find out what our goals are
                     ACLMessage getMyInfo = new ACLMessage(ACLMessage.REQUEST);
                     getMyInfo.setLanguage(codec.getName());
                     getMyInfo.setOntology(onto.getName());
@@ -127,13 +128,13 @@ public class BookTrader extends Agent {
                     myGoal = ai.getGoals();
                     myMoney = ai.getMoney();
 
-                    //pridame chovani, ktere jednou za dve vteriny zkusi koupit vybranou knihu
+                    //add a behavior which tries to buy a book every two seconds
                     addBehaviour(new TradingBehaviour(myAgent, 2000));
 
-                    //pridame chovani, ktere se stara o prodej knih
+                    //add a behavior which sells book to other agents
                     addBehaviour(new SellBook(myAgent, MessageTemplate.MatchPerformative(ACLMessage.CFP)));
 
-                    //odpovime, ze budeme obchodovat (ta zprava se v prostredi ignoruje, ale je slusne ji poslat)
+                    //reply that we are able to start trading (the message is ignored by the environment)
                     ACLMessage reply = request.createReply();
                     reply.setPerformative(ACLMessage.INFORM);
                     return reply;
@@ -152,6 +153,8 @@ public class BookTrader extends Agent {
             return super.handleRequest(request);
         }
 
+
+        //this behavior trades with books
         class TradingBehaviour extends TickerBehaviour {
 
 
@@ -164,7 +167,7 @@ public class BookTrader extends Agent {
 
                 try {
 
-                    //najdeme si ostatni prodejce a pripravime zpravu
+                    //find other seller and prepare a CFP
                     ServiceDescription sd = new ServiceDescription();
                     sd.setType("book-trader");
                     DFAgentDescription dfd = new DFAgentDescription();
@@ -185,7 +188,7 @@ public class BookTrader extends Agent {
 
                     ArrayList<BookInfo> bis = new ArrayList<BookInfo>();
 
-                    //vybereme knihu k nakupu
+                    //choose a book from goals to buy
                     BookInfo bi = new BookInfo();
                     bi.setBookName(myGoal.get(rnd.nextInt(myGoal.size())).getBook().getBookName());
                     bis.add(bi);
@@ -207,24 +210,24 @@ public class BookTrader extends Agent {
         }
 
 
-        //vlastni chovani, ktere se stara o opratreni knihy
+        //this behavior takes care of the buying of the book itself
         class ObtainBook extends ContractNetInitiator {
 
             public ObtainBook(Agent a, ACLMessage cfp) {
                 super(a, cfp);
             }
 
-            Chosen c;  //musime si pamatovat, co jsme nabidli
-            ArrayList<BookInfo> shouldReceive; //pamatujeme si, i co nabidl prodavajici nam
+            Chosen c;  //we need to remember what offer we have chosen
+            ArrayList<BookInfo> shouldReceive; //we also remember what the seller offered to us
 
 
-            //prodavajici nam posila nasi objednavku, zadame vlastni pozadavek na poslani platby
+            //the seller informs us it processed the order, we need to send the payment
             @Override
             protected void handleInform(ACLMessage inform) {
                 try {
 
 
-                    //vytvorime informace o transakci a posleme je prostredi
+                    //create the transaction info and send it to the environment
                     MakeTransaction mt = new MakeTransaction();
 
                     mt.setSenderName(myAgent.getName());
@@ -271,14 +274,13 @@ public class BookTrader extends Agent {
 
             }
 
-            //zpracovani nabidek od prodavajicich
+            //process the offers from the sellers
             @Override
             protected void handleAllResponses(Vector responses, Vector acceptances) {
 
                 Iterator it = responses.iterator();
 
-                //je potreba vybrat jen jednu nabidku (jinak vytvorime dve transakce se stejnym ID,
-                //TODO 2015: upravit, aby bylo mozne prijmout i vice, jak pocitat ID?
+                //we need to accept only one offer, otherwise we create two transactions with the same ID
                 boolean accepted = false;
                 while (it.hasNext()) {
                     ACLMessage response = (ACLMessage)it.next();
@@ -295,7 +297,7 @@ public class BookTrader extends Agent {
 
                         ArrayList<Offer> offers = cf.getOffers();
 
-                        //zjistime, ktere nabidky muzeme splnit
+                        //find out which offers we can fulfill (we have all requested books and enough money)
                         ArrayList<Offer> canFulfill = new ArrayList<Offer>();
                         for (Offer o: offers) {
                             if (o.getMoney() > myMoney)
@@ -324,7 +326,7 @@ public class BookTrader extends Agent {
                             }
                         }
 
-                        //kdyz zadnou, tak odmitneme, stejne tak, kdyz uz jsme nejakou prijali
+                        //if none, we REJECT the proposal, we also reject all proposal if we already accepted one
                         if (canFulfill.size() == 0 || accepted) {
                             ACLMessage acc = response.createReply();
                             acc.setPerformative(ACLMessage.REJECT_PROPOSAL);
@@ -336,7 +338,7 @@ public class BookTrader extends Agent {
                         acc.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
                         accepted = true;
 
-                        //vybereme nabidku
+                        //choose an offer
                         Chosen ch = new Chosen();
                         ch.setOffer(canFulfill.get(rnd.nextInt(canFulfill.size())));
 
@@ -358,7 +360,7 @@ public class BookTrader extends Agent {
         }
 
 
-        //chovani, ktere se stara o prodej knih
+        //this behavior processes the selling of books
         class SellBook extends SSResponderDispatcher {
 
             public SellBook(Agent a, MessageTemplate tpl) {
@@ -388,7 +390,7 @@ public class BookTrader extends Agent {
 
                     ArrayList<BookInfo> sellBooks = new ArrayList<BookInfo>();
 
-                    //zjistime, jestli mame knihy, ktere agent chce
+                    //find out, if we have books the agent wants
                     for (int i = 0; i < books.size(); i++) {
                         boolean found = false;
                         for (int j = 0; j < myBooks.size(); j++) {
@@ -402,7 +404,7 @@ public class BookTrader extends Agent {
                             throw new RefuseException("");
                     }
 
-                    //vytvorime dve neodolatelne nabidky
+                    //create two offers
                     Offer o1 = new Offer();
                     o1.setMoney(100);
 
@@ -422,7 +424,7 @@ public class BookTrader extends Agent {
                     cf.setWillSell(sellBooks);
                     cf.setOffers(offers);
 
-                    //posleme nabidky
+                    //send the offers
                     ACLMessage reply = cfp.createReply();
                     reply.setPerformative(ACLMessage.PROPOSE);
                     reply.setReplyByDate(new Date(System.currentTimeMillis() + 5000));
@@ -439,14 +441,14 @@ public class BookTrader extends Agent {
 
                 throw new FailureException("");
             }
-            //agent se rozhodl, ze nabidku prijme
+            //the buyer decided to accept an offer
             @Override
             protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
 
                 try {
                     ChooseFrom cf = (ChooseFrom)getContentManager().extractContent(propose);
 
-                    //pripravime info o transakci a zadame ji prostredi
+                    //prepare the transaction info and send it to the environment
                     MakeTransaction mt = new MakeTransaction();
 
                     mt.setSenderName(myAgent.getName());
@@ -504,7 +506,7 @@ public class BookTrader extends Agent {
             }
         }
 
-        //po dokonceni obchodu (prostredi poslalo info) si aktualizujeme vlastni seznam knih a cile
+        //after the transaction is complete (the environment returned an INFORM), we update our information
         class SendBook extends AchieveREInitiator {
 
             public SendBook(Agent a, ACLMessage msg) {

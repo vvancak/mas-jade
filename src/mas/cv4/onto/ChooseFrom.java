@@ -9,7 +9,7 @@ import java.util.ArrayList;
 /**
  * Created by Martin Pilat on 16.4.14.
  *
- * Seznam nabidek, ze kterych si kupujici agent muze vybrat libovolnou.
+ * List of offer from which the buyer can choose
  */
 public class ChooseFrom implements Predicate {
 

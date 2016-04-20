@@ -6,7 +6,7 @@ import jade.content.onto.annotations.Slot;
 /**
  * Created by Martin Pilat on 16.4.14.
  *
- * Konkretni vybrana nabidka.
+ * A chosen offer
  */
 public class Chosen implements Predicate {
 

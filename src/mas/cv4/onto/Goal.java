@@ -6,7 +6,7 @@ import jade.content.onto.annotations.Slot;
 /**
  * Created by Martin Pilat on 12.2.14.
  *
- * Trida reprezentujici jeden cil agenta -- cenu a jeji hodnotu pro agenta.
+ * One goal of the agent -- a book and its value
  */
 public class Goal implements Concept {
 

@@ -9,7 +9,7 @@ import java.util.ArrayList;
 /**
  * Created by Martin Pilat on 16.4.14.
  *
- * Konkretni nabidka prodavajiciho. Muze obsahovat jak penize, tak seznam knih.
+ * * An offer from the seller, must contain both money and a list of books
  */
 public class Offer implements Concept {
 

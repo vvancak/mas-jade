@@ -9,16 +9,16 @@ import java.util.ArrayList;
 /**
  * Created by Martin Pilat on 15.4.14.
  *
- * Trida obsahujici zakladni utility, ktere se mohou hodit.
+ * Basic utilities used in the book trading competition
  */
 public class Utils {
 
 
-    /** Funkce vypocitava uzitek agenta na zaklade knih, ktere vlastni a jeho cilu.
+    /** Compute the utility of the agent based on its money and books it has
      *
-     *  Uzitek se rovna souctu uzitku z knih, ktere agent vlastni a ma je v cilich a penez, ktere agent ma.
-     *  Knihy, ktere agent vlastni, a nejsou v jeho cilich se vubec nezapocitavaji.
-    **/
+     *  The utility is the sum of values of the books owned by the agents and has them in its goals and the
+     *  money the agent has. Books, the agents owns, but are not in his goals are not considered.
+     */
     public static double computeUtility(AgentInfo ai) {
 
         double util = ai.getMoney();

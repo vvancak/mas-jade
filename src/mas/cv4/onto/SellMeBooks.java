@@ -8,7 +8,7 @@ import java.util.ArrayList;
 /**
  * Created by Martin Pilat on 16.4.14.
  *
- * Pozadavek na prodej knih.
+ * A request to sell books
  */
 public class SellMeBooks implements AgentAction {
 

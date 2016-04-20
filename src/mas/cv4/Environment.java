@@ -27,7 +27,8 @@ import java.util.*;
 /**
  * Created by Martin Pilat on 11.2.14.
  *
- * Implementace prostredi, ktere se stara o obchodovani mezi agenty, posilani knih a spravu informaci o agentech.
+ * An implementation of the environment which takes care of the trading between teh agents, send books and stores
+ * information about agents.
  */
 public class Environment extends Agent {
 
@@ -43,34 +44,34 @@ public class Environment extends Agent {
     protected void setup() {
         super.setup();
 
-        //napred je potreba rict agentovi, jakym zpusobem jsou zpravy kodovany, a jakou pouzivame ontologii
+        //register the codec and the ontology with the content manager
         this.getContentManager().registerLanguage(codec);
         this.getContentManager().registerOntology(onto);
 
-        //popis sluzby environment
+        //describe the environment service
         ServiceDescription sd = new ServiceDescription();
         sd.setType("environment");
         sd.setName("env");
 
-        //popis tohoto agenta a sluzeb, ktere nabizi
+        //describe this agents and the services it provides
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(this.getAID());
         dfd.addServices(sd);
 
-        //zaregistrovani s DF
+        //register with DF
         try {
             DFService.register(this, dfd);
         } catch (FIPAException e) {
             e.printStackTrace();
         }
 
-        //chovani, ktere vsem posle info o zacatku obchodovani
+        //send StartTrading to all agents
         addBehaviour(new StartTradingBehavior());
-        //chovani, ktere periodicky vypisuje aktualni zisky agentu
+        //periodically print the utilities of all agents
         addBehaviour(new PrintAgentUtilityBehaviour(this));
-        //chovani, ktere se stara o vsechny requesty
+        //process all incoming requests
         addBehaviour(new MessageDispatcherBehavior());
-        //chovani, ktere periodicky odstranuje transakce, ktere neprobehly vcas
+        //periodically remove all transactions which were not completed in time
         addBehaviour(new UnfinishedTransactionsRemoverBehavior(this));
 
     }
@@ -85,13 +86,13 @@ public class Environment extends Agent {
         }
     }
 
-    //posleme vsem info o zacatku obchodovani, vygenerujeme prirazeni knih a cile
+    //send the info about the start of trading, generate goals for agents
     private class StartTradingBehavior extends OneShotBehaviour {
 
         @Override
         public void action() {
 
-            //najdeme vsechny obchodniky
+            //find all traders
             ServiceDescription sd = new ServiceDescription();
             sd.setType("book-trader");
             DFAgentDescription dfd = new DFAgentDescription();
@@ -108,7 +109,7 @@ public class Environment extends Agent {
                 booksNames.addAll(Constants.getBooknames());
                 int bID = 0;
 
-                //vygenerujeme cile a knihy pro kazdeho agenta
+                //generate goals and books for each agent
                 for (DFAgentDescription tr : traders) {
 
                     Collections.shuffle(booksNames,rnd);
@@ -160,7 +161,7 @@ public class Environment extends Agent {
         }
     }
 
-    //kazdych 15 vterin vypiseme, kdo ma jaky uzitek
+    //print the utility of all agents every 15 seconds
     private class PrintAgentUtilityBehaviour extends TickerBehaviour {
 
         public PrintAgentUtilityBehaviour(Agent myAgent) {
@@ -211,7 +212,7 @@ public class Environment extends Agent {
         }
     }
 
-    //kazdych 5 vterin smazeme transakce, ke kterym behem 5 vterin nedorazila druha polovina
+    //remove unmatched transactions older than 5 seconds every 5 seconds
     private class UnfinishedTransactionsRemoverBehavior extends TickerBehaviour {
 
         public UnfinishedTransactionsRemoverBehavior(Agent myAgent) {
@@ -241,7 +242,7 @@ public class Environment extends Agent {
         }
     }
 
-    //rozdeleni requestu mezi dve chovani, ktera se o ne postaraji
+    //dispatch the requests to two behaviros which will take care of them
     private class MessageDispatcherBehavior extends CyclicBehaviour {
 
         @Override
@@ -269,12 +270,12 @@ public class Environment extends Agent {
 
             Action aa = (Action)ce;
 
-            //pridani chovani pro MakeTransaction
+            //add behavior for MakeTransaction
             if (aa.getAction() instanceof MakeTransaction) {
                 myAgent.addBehaviour(new HandleSendBehaviour(myAgent, (MakeTransaction)aa.getAction(), received));
             }
 
-            //pridani chovani pro GetMyInfo
+            //add behavior for GetMyInfo
             if (aa.getAction() instanceof GetMyInfo) {
                 myAgent.addBehaviour(new HandleInfoBehaviour(myAgent, (GetMyInfo)aa.getAction(), received));
             }
@@ -282,7 +283,7 @@ public class Environment extends Agent {
         }
     }
 
-    //chovani, ktere se stara o zaslani informaci o agentovi, ktery o to projevi zajem
+    //sends the info about the agent who requests it
     private class HandleInfoBehaviour extends OneShotBehaviour {
 
         Agent myAgent;
@@ -304,7 +305,7 @@ public class Environment extends Agent {
 
             String agentName = request.getSender().getName();
 
-            //zjistime informace
+            //get the information
             AgentInfo ai = agentBooks.get(agentName);
 
             if (ai == null) {
@@ -314,7 +315,7 @@ public class Environment extends Agent {
                 return;
             }
 
-            //posleme je agentovi
+            //send it to the agent
             reply.setPerformative(ACLMessage.INFORM);
             try {
                 getContentManager().fillContent(reply, new Result(gmi, ai));
@@ -329,7 +330,7 @@ public class Environment extends Agent {
     }
 
 
-    //zpracovani transakce mezi dvemi agenty
+    //process the transaction between two agents
     private class HandleSendBehaviour extends OneShotBehaviour {
 
         MakeTransaction sendMsgContent;
@@ -347,13 +348,13 @@ public class Environment extends Agent {
             String transactionID = sendMsgContent.getTradeConversationID();
 
 
-            //prisla info od jednoho agenta, zapamatujeme si transakci
+            //we got request from one agent, remember the transaction
             if (!unfinishedTransaction.containsKey(transactionID)) { //this is the first time we know about transaction
                 unfinishedTransaction.put(transactionID, new TransactionInfo(sendMsgContent, sendMsg, System.currentTimeMillis()));
                 return;
             }
 
-            //prisla info od druheho ucastnika transakce
+            //we got request from the other agent
             ACLMessage sendMsg1 = unfinishedTransaction.get(transactionID).getSenderMessage();
             ACLMessage sendMsg2 = sendMsg;
 
@@ -361,7 +362,7 @@ public class Environment extends Agent {
             MakeTransaction sendOrder2 = sendMsgContent;
 
 
-            //kontrola, ze sedi odesilatele a prijemci v obou zpravach
+            //check the senders and receiver match
             if (!sendOrder1.getReceiverName().equals(sendOrder2.getSenderName()) ||
                     !sendOrder1.getSenderName().equals(sendOrder2.getReceiverName())) {
 
@@ -374,7 +375,7 @@ public class Environment extends Agent {
             AgentInfo agentInfo1 = agentBooks.get(agentName1);
             AgentInfo agentInfo2 = agentBooks.get(agentName2);
 
-            //kontrola, ze agenti maji vsechny knihy, ktere chteji odeslat
+            //check the agents have all the books they want to send
             ArrayList<BookInfo> ag1MissingBooks = getMissingBooks(agentInfo1, sendOrder1.getSendingBooks());
             if (ag1MissingBooks.size() > 0) {
                 sendFailure(sendMsg1, sendMsg2, agentName1 + " does not have " + ag1MissingBooks);
@@ -387,7 +388,7 @@ public class Environment extends Agent {
                 return;
             }
 
-            //kontrola, ze agenti maji dost penez
+            //check the agent have enough money
             if (agentInfo1.getMoney() < sendOrder1.getSendingMoney()) {
                 sendFailure(sendMsg1, sendMsg2, agentName1 + " does not have enough money");
                 return;
@@ -398,7 +399,7 @@ public class Environment extends Agent {
                 return;
             }
 
-            //kontrola, ze sedi knihy, ktere agent odesila a druhy agent ocekava
+            //check the list of sent and expected books match
             if (sendOrder1.getSendingBooks() != null && sendOrder2.getReceivingBooks() != null)
                 if (sendOrder1.getSendingBooks().size() != sendOrder2.getReceivingBooks().size()) {
                     sendFailure(sendMsg1, sendMsg2, "orders do not match");
@@ -425,7 +426,7 @@ public class Environment extends Agent {
                 }
             }
 
-            //kontrola, ze sedi mnozstvi penez, ktere agenti posilaji a ocekavaji
+            //check the amount of money matches
             if (sendOrder1.getSendingMoney() != sendOrder2.getReceivingMoney()) {
                 sendFailure(sendMsg1, sendMsg2, "orders do not match");
                 return;
@@ -436,7 +437,7 @@ public class Environment extends Agent {
                 return;
             }
 
-            //odstranime knihy, ktere agent odesila
+            //remove the books the agent sends
             ArrayList<BookInfo> books = agentInfo1.getBooks();
             ArrayList<BookInfo> removeBooks = sendOrder1.getSendingBooks();
             for (int i = 0; i < removeBooks.size(); i++) {
@@ -448,7 +449,7 @@ public class Environment extends Agent {
                 }
             }
 
-            //to same pro druheho agenta
+            //the same for the other agent
             books = agentInfo2.getBooks();
             removeBooks = sendOrder2.getSendingBooks();
             for (int i = 0; i < removeBooks.size(); i++) {
@@ -460,14 +461,14 @@ public class Environment extends Agent {
                 }
             }
 
-            //pridame knihy, ktere agent dostava
+            //add books the agent receives
             books = agentInfo1.getBooks();
             ArrayList<BookInfo> addBooks = sendOrder2.getSendingBooks();
             for (int i = 0; i < addBooks.size(); i++) {
                 books.add(addBooks.get(i));
             }
 
-            //a zase to same pro druheho
+            //the same for the other one
             books = agentInfo2.getBooks();
             addBooks = sendOrder1.getSendingBooks();
             for (int i = 0; i < addBooks.size(); i++) {
@@ -477,14 +478,14 @@ public class Environment extends Agent {
             //System.out.println("Transaction: " + sendOrder1);
 
 
-            //prevedeme penize mezi agenty
+            //transfer money between agents
             agentInfo1.setMoney(agentInfo1.getMoney()-sendOrder1.getSendingMoney());
             agentInfo1.setMoney(agentInfo1.getMoney()+sendOrder2.getSendingMoney());
 
             agentInfo2.setMoney(agentInfo2.getMoney()-sendOrder2.getSendingMoney());
             agentInfo2.setMoney(agentInfo2.getMoney()+sendOrder1.getSendingMoney());
 
-            //posleme obema info, ze se prevod povedl
+            //send both agent an INFORM - the trade was successful
             ACLMessage reply1 = sendMsg1.createReply();
             ACLMessage reply2 = sendMsg2.createReply();
             reply1.setPerformative(ACLMessage.INFORM);
@@ -499,7 +500,7 @@ public class Environment extends Agent {
 
         }
 
-        //poslani chyby obema agentum, chyba je jako text, dulezity je jen performative
+        //send FAILURE to both agent, the failure is described as text, only performative is important
         void sendFailure(ACLMessage msg1, ACLMessage msg2, String text) {
             ACLMessage reply1 = msg1.createReply();
             ACLMessage reply2 = msg2.createReply();
@@ -512,7 +513,7 @@ public class Environment extends Agent {
         }
 
 
-        //najde knihy, ktere agent chce poslat, ale nema je
+        //finds the books the agent wants to send but does not own
         ArrayList<BookInfo> getMissingBooks(AgentInfo agent, ArrayList<BookInfo> books) {
             ArrayList<BookInfo> missing = new ArrayList<BookInfo>();
             for (BookInfo bi : books) {

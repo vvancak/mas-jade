@@ -8,7 +8,7 @@ import java.util.ArrayList;
 /**
  * Created by Martin Pilat on 12.2.14.
  *
- * Pozadavek na prostredni, aby prevedlo knihy a penize od jednoho agenta ke druhemu.
+ * Request (to the environment) to transfer books from one agent to another
  */
 public class MakeTransaction implements AgentAction {
 

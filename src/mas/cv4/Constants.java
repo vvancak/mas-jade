@@ -11,7 +11,7 @@ public class Constants {
     static HashMap<String, Double> bookPrices;
 
 
-    //seznam knih, se kterymi je mozne obchodovat a jejich defaultni ceny
+    //list of books which can be traded and their default prices
     private static void fillPrices() {
         bookPrices = new HashMap<String, Double>();
         bookPrices.put("The Goldfinch", 50.0);

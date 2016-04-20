@@ -6,7 +6,7 @@ import jade.content.onto.annotations.Slot;
 /**
  * Created by Martin Pilat on 12.2.14.
  *
- * Trida obsahujici informace o knize, jmeno a ID.
+ * Information on a book - name and ID
  */
 public class BookInfo implements Concept {
 

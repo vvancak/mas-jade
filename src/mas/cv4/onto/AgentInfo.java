@@ -8,7 +8,7 @@ import java.util.ArrayList;
 /**
  * Created by Martin Pilat on 12.2.14.
  *
- * Trida obsahujici informace o agentovi -- cile, senznam knih a penize, ktere agent ma.
+ * This class contains agent information -- goals, list of books, and the amount of money
  */
 public class AgentInfo implements Concept {
 
