@@ -71,7 +71,7 @@ public class BookSellerAgent extends Agent {
 		myGui = new BookSellerGui(this);
 		myGui.showGui();
 
-        //napred je potreba rict agentovi, jakym zpusobem jsou zpravy kodovany, a jakou pouzivame ontologii
+        //first, register the codec and the ontology with the content manager
         this.getContentManager().registerLanguage(codec);
         this.getContentManager().registerOntology(onto);
 
@@ -89,13 +89,13 @@ public class BookSellerAgent extends Agent {
 			fe.printStackTrace();
 		}
 
-        //chovani, ktere se stara o zpracovani pozadavku na seznam knih
+        //behavior which processes the ListBooks requuests
         addBehaviour(new ListAvailableBooks(this, MessageTemplate.and(MessageTemplate.MatchPerformative(ACLMessage.REQUEST), new MessageTemplate(new MatchListBooks()))));
 
-        //chovani, ktere se stara o prodej jedne knihy
+        //behavir which sells the books
         addBehaviour(new HandleSellBook(this, MessageTemplate.and(MessageTemplate.MatchPerformative(ACLMessage.REQUEST), new MessageTemplate(new MatchSellBook()))));
 
-        //chovani, ktere se stara o vraceni nabidky na knihu a pripadny prodej knihy
+        //behavior to return an offer on a book and sells it eventually
         addBehaviour(new OfferBookPrices(this, MessageTemplate.MatchPerformative(ACLMessage.CFP)));
 
 	}
@@ -127,7 +127,7 @@ public class BookSellerAgent extends Agent {
 		System.out.println("Seller-agent "+getAID().getName()+" terminating.");
 	}
 
-    //MessageTemplate, ktery matchuje zpravy, ktere obsahuji GetBookList
+    //MessageTemplate, which matches only ListBook messages
     private class MatchListBooks implements MessageTemplate.MatchExpression {
 
         @Override
@@ -147,7 +147,7 @@ public class BookSellerAgent extends Agent {
         }
     }
 
-    //MessageTemplate, ktery matchuje zpravy, ktere obsahuji SellBook
+    //MessageTemplate, which matches only SellBook messages
     private class MatchSellBook implements MessageTemplate.MatchExpression {
 
         @Override
@@ -166,7 +166,7 @@ public class BookSellerAgent extends Agent {
             return a.getAction() instanceof SellBook;
         }
     }
-    //chovani, ktere se stara o prodej dane knihy
+    //this behavior sells a single book
     private class HandleSellBook extends AchieveREResponder {
 
         public HandleSellBook(Agent a, MessageTemplate mt) {
@@ -210,15 +210,15 @@ public class BookSellerAgent extends Agent {
     }
 
 
-    //trida, ktera se stara o vyrizeni pozadavku na seznam knih
+    //this behavior processes the requests for the lists of books
     private class ListAvailableBooks extends AchieveREResponder {
 
         public ListAvailableBooks(Agent a, MessageTemplate mt) {
             super(a, mt);
         }
 
-        //pozadavek na seznam knih, bud muzeme vratit rovnou INFORM se senznamem, nebo jen slibime, ze seznam posleme
-        //(AGREE, jako zde)
+        //request for the list of books - we can either return an inform with the list, or we can promise to send the
+        //list later (AGREE, in this example)
         @Override
         protected ACLMessage handleRequest(ACLMessage request) throws NotUnderstoodException, RefuseException {
 
@@ -242,7 +242,7 @@ public class BookSellerAgent extends Agent {
 
         }
 
-        //tady pripravime zpravu se seznamem knih a posleme ji, parametr response je nase AGREE zprava
+        //prepare the message with the list of books, response parameter contains our AGREE message
         @Override
         protected ACLMessage prepareResultNotification(ACLMessage request, ACLMessage response) throws FailureException {
 
@@ -275,15 +275,14 @@ public class BookSellerAgent extends Agent {
         }
     }
 
-    //implementace contract-net respondera, na dotaz posle nabidku ceny, za kterou knihu proda a ceka
-    //na rozhodnuti initiatora
+    //implementatio of the contract-net respoder, offers a price and waits for the decision of the initiator
     private class OfferBookPrices extends ContractNetResponder {
 
         public OfferBookPrices(Agent a, MessageTemplate mt) {
             super(a, mt);
         }
 
-        //zpracovani dotazu na cenu knihy
+        //handle the CFP for the price of the book
         @Override
         protected ACLMessage handleCfp(ACLMessage cfp) throws RefuseException, FailureException, NotUnderstoodException {
 
@@ -295,7 +294,7 @@ public class BookSellerAgent extends Agent {
                     SellBook sb = (SellBook)ac.getAction();
                     String bookTitle = sb.getBi().getName();
 
-                    //kdyz knihu mame v katalogu, nabidneme nasi cenu
+                    //if we own the book, we propose our price
                     if (catalogue.containsKey(bookTitle)) {
                         ACLMessage reply = cfp.createReply();
                         reply.setPerformative(ACLMessage.PROPOSE);
@@ -318,7 +317,7 @@ public class BookSellerAgent extends Agent {
 
         }
 
-        //agent prijal nasi nabidku, ted musime knihu prodat (pokud ji jeste mame)
+        //the agent accepted our proposal -> we have to sell the book (if we still have it)
         @Override
         protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
 
@@ -349,7 +348,7 @@ public class BookSellerAgent extends Agent {
             throw new FailureException("");
         }
 
-        //agent nasi nabidku neprijal
+        //the agent did not accept our proposal
         @Override
         protected void handleRejectProposal(ACLMessage cfp, ACLMessage propose, ACLMessage reject) {
             System.out.println("Agent " + cfp.getSender() + " rejected the proposal :(");

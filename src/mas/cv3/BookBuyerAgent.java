@@ -66,11 +66,11 @@ public class BookBuyerAgent extends Agent {
 		// Printout a welcome message
 		System.out.println("Hello! Buyer-agent "+getAID().getName()+" is ready.");
 
-        //napred je potreba rict agentovi, jakym zpusobem jsou zpravy kodovany, a jakou pouzivame ontologii
+        //register the coded and the ontology with the content manager
         this.getContentManager().registerLanguage(codec);
         this.getContentManager().registerOntology(onto);
 
-        // seznam prodavajicih agentu
+        // get the list of seller agents
         DFAgentDescription template = new DFAgentDescription();
         ServiceDescription sd = new ServiceDescription();
         sd.setType("book-selling");
@@ -88,19 +88,19 @@ public class BookBuyerAgent extends Agent {
             fe.printStackTrace();
         }
 
-        //zeptat se vsech agentu na knihy, ktere nabizeji k prodeji
+        //ask all seller for the list of books they sell
         if (sellerAgents.length > 0) {
             addBehaviour(new ListBooks(this, null, sellerAgents));
         }
 
-        //zeptat se vsech prodvajicich na cenu knihy LOTR a koupit od nejlevnejsiho
+        //ask everyone about for the price of LOTR and buy it from the cheapest
         if (sellerAgents.length > 0) {
             addBehaviour(new BuyBook(this, null, sellerAgents));
         }
 
 	}
 
-    //chovani, ktere se postara o zjisteni seznamu knih prodavanych danym agentem/agenty
+    //this behavior obtains the list of books sold by the sellers
     private class ListBooks extends AchieveREInitiator {
 
         AID[] sellers;
@@ -134,20 +134,19 @@ public class BookBuyerAgent extends Agent {
             return requests;
         }
 
-        //tady zjistime, kteri agenti nam slibili poslat seznam knih, zprava agree je nepovinna, takze je mozne, ze se tahle
-        //metoda vubec nezavola (v tomhle pripade ji prodavajici vzdy posila, takze se zavola}
+        //here, we can handle the AGREE message, it is optional, so this method may not be called at all
         @Override
         protected void handleAgree(ACLMessage agree) {
             System.out.println("Agent " + agree.getSender() + " agreed to send the list of books");
         }
 
-        //tady se dozvime, ze nektery z agentu nam nechce seznam knih poslat
+        //handle the REFUSE message if and agents refuses to send the list of books
         @Override
         protected void handleRefuse(ACLMessage refuse) {
             System.out.println("Agent " + refuse.getSender() + " refused to send the list of books");
         }
 
-        //tady muzeme zpracovat jednotlive odpovedi -- seznamy knih od jednotlivych prodavajicich
+        //process the answers -- list of books from individual agents
         @Override
         protected void handleInform(ACLMessage inform) {
 
@@ -170,15 +169,15 @@ public class BookBuyerAgent extends Agent {
             System.out.println();
         }
 
-        //tahle metoda se zavola, kdyz dostaneme vysledky (seznamy knih) od vsech agentu, asi je to dobre misto na vybrani
-        //si jedne knihy a naprogramovani jejiho nakupu od prodavajiciho
+        //this method is called when we receive all responses from the sellers, it may be a good place to select
+        // the cheapest seller and buy the from the agent
         @Override
         protected void handleAllResultNotifications(Vector resultNotifications) {
             System.out.println("All replies received");
         }
     }
 
-    //chovani, ktere se napred vsech agentu zepta na cenu knihy a nakonec ji koupi od toho, kdo ji prodava nejlevneji
+    //this behavior first asks all the agents for the price of a book and buys it from the cheapest one
     private class BuyBook extends ContractNetInitiator {
 
         AID[] sellers;
@@ -205,7 +204,7 @@ public class BookBuyerAgent extends Agent {
                     msg.setLanguage(codec.getName());
                     getContentManager().fillContent(msg, new Action(seller, sb));
                     Date t = new Date();
-                    msg.setReplyByDate(new Date(t.getTime() + 10000)); //agenti maji na odpoved 10 sekund
+                    msg.setReplyByDate(new Date(t.getTime() + 10000)); //agents must reply in 10 seconds
                     cfps.add(msg);
                 }
             }
@@ -218,25 +217,24 @@ public class BookBuyerAgent extends Agent {
             return cfps;
         }
 
-        //tady muzeme jednotlive zpracovavat nabidky
+        //process individual proposals
         @Override
         protected void handlePropose(ACLMessage propose, Vector acceptances) {
             System.out.println("Agent: " + propose.getSender().getName() + " proposed " + propose.getContent());
         }
 
-        //tohle je posledni krok, vybrani agenti nam oznamuji, ze dokoncili pozadavek, ktery jsme na ne meli a posilaji
-        //vysledek -- to, ze nam prodali knihu
+        //this is the last step - it processes the inform that the book is sold to us
         @Override
         protected void handleInform(ACLMessage inform) {
             System.out.println("Agent: " + inform.getSender().getName() + " informed " + inform.getContent());
         }
 
-        //tady muzeme zpracovat vsechny nabidky najednou
+        //process all the proposals at once
         @Override
         protected void handleAllResponses(Vector responses, Vector acceptances) {
             System.out.println("Got all responses");
 
-            //najdeme nejlepsi cenu
+            //find the best price
             int bestPrice = Integer.MAX_VALUE;
             ACLMessage bestResponse = null;
             for (int i = 0; i < responses.size(); i++) {
@@ -261,7 +259,7 @@ public class BookBuyerAgent extends Agent {
                 }
             }
 
-            //prijmeme nabidku pouze od agenta, ktery nabidl nejlepsi cenu, ostatnim posleme odmitnuti
+            //accept the offer from the cheapest agent, send reject to the rest of agents
             for (int i = 0; i < responses.size(); i++) {
                 ACLMessage response = (ACLMessage)responses.get(i);
                 ACLMessage reply = response.createReply();
