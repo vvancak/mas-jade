@@ -16,5 +16,5 @@ sourceSets{main{java{srcDir 'src'}}}
 
 mainClassName = 'jade.Boot'
 run {
-   args = ['-gui']
+        args = ['-agents', 'environment:mas.cv4.Environment;random:mas.cv4.BookTrader;qwertyuiop:mas.cv4.qwertyuiop']
 }
