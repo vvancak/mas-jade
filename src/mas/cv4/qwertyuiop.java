@@ -29,9 +29,30 @@ public class qwertyuiop extends Agent {
 
     ArrayList<BookInfo> myBooks;
     ArrayList<Goal> myGoal;
+    ArrayList<Integer> goalBookIDs;
     double myMoney;
+    boolean goalReached = false;
 
     Random rnd = new Random();
+
+    private void initGoalBooks() {
+        goalBookIDs = new ArrayList<>();
+        for (int i = 0; i < myGoal.size(); i++)
+            goalBookIDs.add(-1);
+    }
+
+    //map book ids to goals, index in array represents goal
+    private void updateGoals() {
+        goalReached = true;
+        for (int i = 0; i < myGoal.size(); i++) {
+            for (int j = 0; j < myBooks.size(); j++)
+                if (myBooks.get(j).getBookName().equals(myGoal.get(i).getBook().getBookName())) {
+                    goalBookIDs.set(i, myBooks.get(j).getBookID());
+                }
+            if (goalBookIDs.get(i).equals(-1))
+                goalReached = false;
+        }
+    }
 
     @Override
     protected void setup() {
@@ -89,7 +110,7 @@ public class qwertyuiop extends Agent {
                 if (!(ce instanceof Action)) {
                     throw new NotUnderstoodException("");
                 }
-                Action a = (Action)ce;
+                Action a = (Action) ce;
 
 
                 //we got the request to start trading
@@ -112,13 +133,14 @@ public class qwertyuiop extends Agent {
 
                     ACLMessage myInfo = FIPAService.doFipaRequestClient(myAgent, getMyInfo);
 
-                    Result res = (Result)getContentManager().extractContent(myInfo);
+                    Result res = (Result) getContentManager().extractContent(myInfo);
 
-                    AgentInfo ai = (AgentInfo)res.getValue();
+                    AgentInfo ai = (AgentInfo) res.getValue();
 
                     myBooks = ai.getBooks();
                     myGoal = ai.getGoals();
                     myMoney = ai.getMoney();
+                    initGoalBooks();
 
                     //add a behavior which tries to buy a book every two seconds
                     addBehaviour(new TradingBehaviour(myAgent, 2000));
@@ -158,7 +180,7 @@ public class qwertyuiop extends Agent {
             protected void onTick() {
 
                 try {
-
+                    updateGoals();
                     //find other seller and prepare a CFP
                     ServiceDescription sd = new ServiceDescription();
                     sd.setType("book-trader");
@@ -170,7 +192,7 @@ public class qwertyuiop extends Agent {
                     ACLMessage buyBook = new ACLMessage(ACLMessage.CFP);
                     buyBook.setLanguage(codec.getName());
                     buyBook.setOntology(onto.getName());
-                    buyBook.setReplyByDate(new Date(System.currentTimeMillis()+5000));
+                    buyBook.setReplyByDate(new Date(System.currentTimeMillis() + 5000));
 
                     for (DFAgentDescription dfad : traders) {
                         if (dfad.getName().equals(myAgent.getAID()))
@@ -269,13 +291,13 @@ public class qwertyuiop extends Agent {
             //process the offers from the sellers
             @Override
             protected void handleAllResponses(Vector responses, Vector acceptances) {
-
+                updateGoals();
                 Iterator it = responses.iterator();
 
                 //we need to accept only one offer, otherwise we create two transactions with the same ID
                 boolean accepted = false;
                 while (it.hasNext()) {
-                    ACLMessage response = (ACLMessage)it.next();
+                    ACLMessage response = (ACLMessage) it.next();
 
                     ContentElement ce = null;
                     try {
@@ -285,13 +307,14 @@ public class qwertyuiop extends Agent {
 
                         ce = getContentManager().extractContent(response);
 
-                        ChooseFrom cf = (ChooseFrom)ce;
+                        ChooseFrom cf = (ChooseFrom) ce;
 
                         ArrayList<Offer> offers = cf.getOffers();
 
                         //find out which offers we can fulfill (we have all requested books and enough money)
+                        //do not sel books that are in goal
                         ArrayList<Offer> canFulfill = new ArrayList<Offer>();
-                        for (Offer o: offers) {
+                        for (Offer o : offers) {
                             if (o.getMoney() > myMoney)
                                 continue;
 
@@ -301,7 +324,7 @@ public class qwertyuiop extends Agent {
                                     String bn = bi.getBookName();
                                     boolean found = false;
                                     for (int j = 0; j < myBooks.size(); j++) {
-                                        if (myBooks.get(j).getBookName().equals(bn)) {
+                                        if (myBooks.get(j).getBookName().equals(bn) && !goalBookIDs.contains(myBooks.get(j).getBookID())) {
                                             found = true;
                                             bi.setBookID(myBooks.get(j).getBookID());
                                             break;
@@ -334,7 +357,7 @@ public class qwertyuiop extends Agent {
                         Chosen ch = new Chosen();
                         ch.setOffer(canFulfill.get(rnd.nextInt(canFulfill.size())));
 
-                        c=ch;
+                        c = ch;
                         shouldReceive = cf.getWillSell();
 
                         getContentManager().fillContent(acc, ch);
@@ -375,9 +398,10 @@ public class qwertyuiop extends Agent {
             protected ACLMessage handleCfp(ACLMessage cfp) throws RefuseException, FailureException, NotUnderstoodException {
 
                 try {
-                    Action ac = (Action)getContentManager().extractContent(cfp);
+                    updateGoals();
+                    Action ac = (Action) getContentManager().extractContent(cfp);
 
-                    SellMeBooks smb = (SellMeBooks)ac.getAction();
+                    SellMeBooks smb = (SellMeBooks) ac.getAction();
                     ArrayList<BookInfo> books = smb.getBooks();
 
                     ArrayList<BookInfo> sellBooks = new ArrayList<BookInfo>();
@@ -386,7 +410,7 @@ public class qwertyuiop extends Agent {
                     for (int i = 0; i < books.size(); i++) {
                         boolean found = false;
                         for (int j = 0; j < myBooks.size(); j++) {
-                            if (myBooks.get(j).getBookName().equals(books.get(i).getBookName())) {
+                            if (myBooks.get(j).getBookName().equals(books.get(i).getBookName()) && !goalBookIDs.contains(myBooks.get(j).getBookID())) {
                                 sellBooks.add(myBooks.get(j));
                                 found = true;
                                 break;
@@ -433,12 +457,13 @@ public class qwertyuiop extends Agent {
 
                 throw new FailureException("");
             }
+
             //the buyer decided to accept an offer
             @Override
             protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
 
                 try {
-                    ChooseFrom cf = (ChooseFrom)getContentManager().extractContent(propose);
+                    ChooseFrom cf = (ChooseFrom) getContentManager().extractContent(propose);
 
                     //prepare the transaction info and send it to the environment
                     MakeTransaction mt = new MakeTransaction();
@@ -454,7 +479,7 @@ public class qwertyuiop extends Agent {
                     mt.setSendingBooks(cf.getWillSell());
                     mt.setSendingMoney(0.0);
 
-                    Chosen c = (Chosen)getContentManager().extractContent(accept);
+                    Chosen c = (Chosen) getContentManager().extractContent(accept);
 
                     if (c.getOffer().getBooks() == null) {
                         c.getOffer().setBooks(new ArrayList<BookInfo>());
@@ -525,9 +550,9 @@ public class qwertyuiop extends Agent {
 
                     ACLMessage myInfo = FIPAService.doFipaRequestClient(myAgent, getMyInfo);
 
-                    Result res = (Result)getContentManager().extractContent(myInfo);
+                    Result res = (Result) getContentManager().extractContent(myInfo);
 
-                    AgentInfo ai = (AgentInfo)res.getValue();
+                    AgentInfo ai = (AgentInfo) res.getValue();
 
                     myBooks = ai.getBooks();
                     myGoal = ai.getGoals();
