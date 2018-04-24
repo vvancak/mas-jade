@@ -22,5 +22,5 @@ run {
 				'random3:mas.cv4.BookTrader;' +
 				'qwertyuiop1:mas.cv4.qwertyuiop;' +
 				'qwertyuiop2:mas.cv4.qwertyuiop;' +
-				'qwertyuiop3:mas.cv4.qwertyuiop']
+				'qwertyuiop_ii:mas.cv4.qwertyuiop_ii']
 }
