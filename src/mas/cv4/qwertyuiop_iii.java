@@ -19,10 +19,11 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.proto.*;
 import mas.cv4.onto.*;
+import sun.rmi.runtime.Log;
 
 import java.util.*;
 
-public class qwertyuiop_ii extends Agent {
+public class qwertyuiop_iii extends Agent {
 
     Codec codec = new SLCodec();
     Ontology onto = BookOntology.getInstance();
@@ -31,7 +32,7 @@ public class qwertyuiop_ii extends Agent {
 
     static final double MIN_SELL_QUOT = 1.1;
     static final double MAX_SELL_QUOT = 1.5;
-    static final double TRASH_PER_REQUESTED_BOOK = 0.3;
+    static final double TRASH_PER_REQUESTED_BOOK = 0.0;
 
     //Time after which book prices are updated
     static int ticks = 0;
@@ -131,14 +132,12 @@ public class qwertyuiop_ii extends Agent {
     }
 
     //We just bought these books for that price.
-    private void boughtBooks(ArrayList<BookInfo> books, double price)
-    {
+    private void boughtBooks(ArrayList<BookInfo> books, double price) {
         System.out.printf("BUY: %50s bought books for %13f \n", this.getName(), price);
     }
 
     //We just sold these books for that price.
-    private void soldBooks(ArrayList<BookInfo> books, double price)
-    {
+    private void soldBooks(ArrayList<BookInfo> books, double price) {
         System.out.printf("SELL: %50s sold books for %13f \n", this.getName(), price);
     }
 
@@ -153,7 +152,7 @@ public class qwertyuiop_ii extends Agent {
         //book-trader service description
         ServiceDescription sd = new ServiceDescription();
         sd.setType("book-trader");
-        sd.setName("book-trader");
+        sd.setName("qwertyuiop_iii");
 
         //description of this agent and the services it provides
         DFAgentDescription dfd = new DFAgentDescription();
@@ -227,14 +226,14 @@ public class qwertyuiop_ii extends Agent {
 
                     update(ai);
 
-                    //ticker
-                    addBehaviour(new MainTickerBehaviour(myAgent));
-
                     //add a behavior which tries to buy a book every two seconds
                     addBehaviour(new TradingBehaviour(myAgent, 2000));
 
                     //add a behavior which sells book to other agents
                     addBehaviour(new SellBook(myAgent, MessageTemplate.MatchPerformative(ACLMessage.CFP)));
+
+                    //add a behavior which updates the prices
+                    addBehaviour(new UpdatePrices(myAgent));
 
                     //reply that we are able to start trading (the message is ignored by the environment)
                     ACLMessage reply = request.createReply();
@@ -255,19 +254,27 @@ public class qwertyuiop_ii extends Agent {
             return super.handleRequest(request);
         }
 
-        //this behavior updates the prices of books we are looking for or those we are selling
-        class MainTickerBehaviour extends TickerBehaviour {
 
-            public MainTickerBehaviour(Agent a) {
+        //this behavior updates the prices of books we are looking for or those we are selling
+        class UpdatePrices extends TickerBehaviour {
+
+            public UpdatePrices(Agent a) {
                 super(a, TICK_PERIOD);
             }
 
             @Override
             protected void onTick() {
-                LogState();
-                ticks++;
+                try {
+
+                    ++ticks;
+                    LogState();
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
+
 
         //this behavior trades with books
         class TradingBehaviour extends TickerBehaviour {
@@ -281,7 +288,6 @@ public class qwertyuiop_ii extends Agent {
             protected void onTick() {
 
                 try {
-
                     //find other seller and prepare a CFP
                     ServiceDescription sd = new ServiceDescription();
                     sd.setType("book-trader");
@@ -361,7 +367,12 @@ public class qwertyuiop_ii extends Agent {
                     mt.setReceivingBooks(shouldReceive);
                     mt.setReceivingMoney(0.0);
 
+                    //Cannot actually grasp the concept with c.getOffer().getBooks() vs shouldRecieve
+                    //Those should be the same... But...
+
+                    //We managed to bought these books for that price
                     boughtBooks(c.getOffer().getBooks(), c.getOffer().getMoney());
+
 
                     ServiceDescription sd = new ServiceDescription();
                     sd.setType("environment");
@@ -394,7 +405,6 @@ public class qwertyuiop_ii extends Agent {
             //process the offers from the sellers
             @Override
             protected void handleAllResponses(Vector responses, Vector acceptances) {
-
                 Iterator it = responses.iterator();
 
                 //we need to accept only one offer, otherwise we create two transactions with the same ID
@@ -413,26 +423,40 @@ public class qwertyuiop_ii extends Agent {
                         ChooseFrom cf = (ChooseFrom) ce;
 
                         ArrayList<Offer> offers = cf.getOffers();
-                        if (offers == null) continue;
 
                         //find out which offers we can fulfill (we have all requested books and enough money)
-                        ArrayList<Offer> worthIt = new ArrayList<Offer>();
+                        //do not sel books that are in goal
+                        ArrayList<Offer> canFulfill = new ArrayList<Offer>();
                         for (Offer o : offers) {
-                            if (o == null) continue;
-
-                            // not enough money
                             if (o.getMoney() > myMoney) continue;
+                            if (o.getMoney() > getOfferValue(o)) continue;
 
-                            // not worth it
-                            if (o.getMoney() < getOfferValue(o)) continue;
+                            boolean foundAll = true;
+                            if (o.getBooks() != null)
+                                for (BookInfo bi : o.getBooks()) {
+                                    String bn = bi.getBookName();
 
-                            worthIt.add(o);
+                                    boolean found = false;
+                                    for (int j = 0; j < myBooks.size(); j++) {
+                                        if (myBooks.get(j).getBookName().equals(bn)) {
+                                            found = true;
+                                            bi.setBookID(myBooks.get(j).getBookID());
+                                            break;
+                                        }
+                                    }
+                                    if (!found) {
+                                        foundAll = false;
+                                        break;
+                                    }
+                                }
+
+                            if (foundAll) {
+                                canFulfill.add(o);
+                            }
                         }
 
-                        worthIt.sort((o1, o2) -> getOfferValue(o1) < getOfferValue(o2) ? -1 : 1);
-
                         //if none, we REJECT the proposal, we also reject all proposal if we already accepted one
-                        if (worthIt.size() == 0 || accepted) {
+                        if (canFulfill.size() == 0 || accepted) {
                             ACLMessage acc = response.createReply();
                             acc.setPerformative(ACLMessage.REJECT_PROPOSAL);
                             acceptances.add(acc);
@@ -445,7 +469,7 @@ public class qwertyuiop_ii extends Agent {
 
                         //choose an offer
                         Chosen ch = new Chosen();
-                        ch.setOffer(worthIt.get(0));
+                        ch.setOffer(canFulfill.get(rnd.nextInt(canFulfill.size())));
 
                         c = ch;
                         shouldReceive = cf.getWillSell();
@@ -463,6 +487,7 @@ public class qwertyuiop_ii extends Agent {
 
             }
         }
+
 
         //this behavior processes the selling of books
         class SellBook extends SSResponderDispatcher {
@@ -484,7 +509,7 @@ public class qwertyuiop_ii extends Agent {
             }
 
             @Override
-            protected ACLMessage handleCfp(ACLMessage cfp) throws FailureException, NotUnderstoodException, RefuseException {
+            protected ACLMessage handleCfp(ACLMessage cfp) throws RefuseException, FailureException, NotUnderstoodException {
 
                 try {
                     Action ac = (Action) getContentManager().extractContent(cfp);
@@ -492,26 +517,30 @@ public class qwertyuiop_ii extends Agent {
                     SellMeBooks smb = (SellMeBooks) ac.getAction();
                     ArrayList<BookInfo> books = smb.getBooks();
 
-                    // Create offers
-                    ArrayList<Offer> offers = createOffers(books);
+                    ArrayList<BookInfo> sellBooks = new ArrayList<BookInfo>();
 
-                    if (offers.size() == 0) return super.handleCfp(cfp);
-
-                    // Get list of all books in the offer
-                    ArrayList<BookInfo> sellBooks = new ArrayList<>();
-                    for (Offer o : offers) {
-                        if (o.getBooks() == null || o.getBooks().isEmpty()) continue;
-
-                        for (BookInfo bi : o.getBooks())
-                            if (!sellBooks.contains(bi)) sellBooks.add(bi);
+                    //find out, if we have books the agent wants
+                    for (int i = 0; i < books.size(); i++) {
+                        boolean found = false;
+                        for (int j = 0; j < myBooks.size(); j++) {
+                            if (myBooks.get(j).getBookName().equals(books.get(i).getBookName())) {
+                                sellBooks.add(myBooks.get(j));
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found)
+                            throw new RefuseException("");
                     }
 
-                    // Offer message content
+                    ArrayList<Offer> offers = createOffers(sellBooks);
+
                     ChooseFrom cf = new ChooseFrom();
+
                     cf.setWillSell(sellBooks);
                     cf.setOffers(offers);
 
-                    // Send the offers
+                    //send the offers
                     ACLMessage reply = cfp.createReply();
                     reply.setPerformative(ACLMessage.PROPOSE);
                     reply.setReplyByDate(new Date(System.currentTimeMillis() + 5000));
@@ -559,6 +588,7 @@ public class qwertyuiop_ii extends Agent {
                     mt.setReceivingBooks(c.getOffer().getBooks());
                     mt.setReceivingMoney(c.getOffer().getMoney());
 
+                    //We managed to sold these books for that price
                     soldBooks(c.getOffer().getBooks(), c.getOffer().getMoney());
 
                     ServiceDescription sd = new ServiceDescription();

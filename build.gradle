@@ -20,7 +20,7 @@ run {
 				'random1:mas.cv4.BookTrader;' +
 				'random2:mas.cv4.BookTrader;' +
 				'random3:mas.cv4.BookTrader;' +
-				'qwertyuiop1:mas.cv4.qwertyuiop;' +
-				'qwertyuiop2:mas.cv4.qwertyuiop;' +
-				'qwertyuiop_ii:mas.cv4.qwertyuiop_ii']
+				'qwertyuiop_i:mas.cv4.qwertyuiop;' +
+				'qwertyuiop_i:mas.cv4.qwertyuiop;' +
+				'qwertyuiop_iii:mas.cv4.qwertyuiop_iii']
 }
