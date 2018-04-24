@@ -94,10 +94,31 @@ public class qwertyuiop extends Agent {
         double randomAdd = rnd.nextDouble() * (MAX_SELL_QUOT - MIN_SELL_QUOT);
         double price = getBooksValue(books) * (MIN_SELL_QUOT + randomAdd);
 
+        // Just money
         Offer o = new Offer();
         o.setMoney(price);
         offers.add(o);
 
+        // Requested books and Random books
+        for (BookInfo requestedBook : books) {
+            if (!myBookNames.contains(requestedBook.getBookName())) continue;
+
+            ArrayList<BookInfo> offerBooks = new ArrayList<>();
+            offerBooks.add(requestedBook);
+
+            while (rnd.nextDouble() < TRASH_PROB) {
+                int index = rnd.nextInt(myBooks.size());
+                BookInfo bi = myBooks.get(index);
+                if (!offerBooks.contains(bi)) offerBooks.add(bi);
+            }
+
+            Offer off = new Offer();
+            off.setBooks(offerBooks);
+            off.setMoney(getOfferValue(off));
+            offers.add(off);
+        }
+
+        // Just random books
         while (rnd.nextDouble() < TRASH_PROB) {
             ArrayList<BookInfo> randomBooks = new ArrayList<BookInfo>();
 
