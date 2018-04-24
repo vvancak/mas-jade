@@ -22,12 +22,6 @@ run {
             'random3:mas.cv4.BookTrader;' +
             'qwertyuiop_1:mas.cv4.qwertyuiop;' +
             'qwertyuiop_2:mas.cv4.qwertyuiop;' +
-            'qwertyuiop_3:mas.cv4.qwertyuiop;' +
-            'qwertyuiop_ii_1:mas.cv4.qwertyuiop_ii;' +
-            'qwertyuiop_ii_2:mas.cv4.qwertyuiop_ii;' +
-            'qwertyuiopi_ii_3:mas.cv4.qwertyuiop_ii;' +
-            'qwertyuiop_iv_1:mas.cv4.qwertyuiop_iv;' +
-            'qwertyuiop_iv_2:mas.cv4.qwertyuiop_iv;' +
-            'qwertyuiop_iv_3:mas.cv4.qwertyuiop_iv'
+            'qwertyuiop_3:mas.cv4.qwertyuiop'
     ]
 }

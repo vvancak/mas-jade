@@ -29,9 +29,10 @@ public class qwertyuiop extends Agent {
 
     Random rnd = new Random();
 
-    static final double MIN_SELL_QUOT = 1.1;
-    static final double MAX_SELL_QUOT = 1.5;
-    static final double TRASH_PER_REQUESTED_BOOK = 0.3;
+    static final double MIN_SELL_QUOT = 0.5;
+    static final double MAX_SELL_QUOT = 1.0;
+
+    static final double TRASH_PROB = 0.3;
 
     //Time after which book prices are updated
     static int ticks = 0;
@@ -50,6 +51,10 @@ public class qwertyuiop extends Agent {
         double sum = 0;
         for (Goal g : myGoal) sum += g.getValue();
         return (sum / myGoal.size());
+    }
+
+    private double getOfferValue(Offer o) {
+        return o.getMoney() + getBooksValue(o.getBooks());
     }
 
     private double getBookValue(BookInfo book) {
@@ -74,6 +79,7 @@ public class qwertyuiop extends Agent {
         return price;
     }
 
+
     // Willing to sell books for (actual_value) * ( 1 + random number between minimum and maximum added value)
     private double getSellBooksValue(ArrayList<BookInfo> books) {
         double randomAdd = rnd.nextDouble() * (MAX_SELL_QUOT - MIN_SELL_QUOT);
@@ -85,46 +91,39 @@ public class qwertyuiop extends Agent {
     private ArrayList<Offer> createOffers(ArrayList<BookInfo> books) {
         ArrayList<Offer> offers = new ArrayList<Offer>();
 
-        double price = getBooksValue(books);
+        double randomAdd = rnd.nextDouble() * (MAX_SELL_QUOT - MIN_SELL_QUOT);
+        double price = getBooksValue(books) * (MIN_SELL_QUOT + randomAdd);
 
         Offer o = new Offer();
         o.setMoney(price);
         offers.add(o);
 
-        return offers;
+        while (rnd.nextDouble() < TRASH_PROB) {
+            ArrayList<BookInfo> randomBooks = new ArrayList<BookInfo>();
 
-//        for (BookInfo requestedBook : books) {
-//            if (!myBookNames.contains(requestedBook.getBookName())) continue;
-//
-//            // Add requested book
-//            ArrayList<BookInfo> offerBooks = new ArrayList<>();
-//            for(BookInfo book : myBooks)
-//            	if (book.getBookName().equals(requestedBook.getBookName()))
-//            	{
-//            		offerBooks.add(book);
-//            	}
-//
-//            //offerBooks.add(requestedBook);
-//
-//            // Add random trash if we have any books left
-//            if (myBooks.size() > 2) {
-//                while (rnd.nextDouble() < TRASH_PER_REQUESTED_BOOK) {
-//                    int index = rnd.nextInt(myBooks.size());
-//                    BookInfo randomBook = myBooks.get(index);
-//
-//                    // Prevent randomming requested book
-//                    if (offerBooks.contains(randomBook)) break;
-//                    else offerBooks.add(randomBook);
-//                }
-//            }
-//
-//            //Offer o = new Offer();
-//            o.setBooks(offerBooks);
-//            o.setMoney(price);
-//            offers.add(o);
-//        }
-//
-//        return offers;
+            for (int j = 0; j < rnd.nextInt(myBooks.size()); j++)
+                randomBooks.add(myBooks.get(rnd.nextInt(myBooks.size())));
+
+            o = new Offer();
+            o.setBooks(randomBooks);
+            double value = getSellBooksValue(randomBooks);
+            o.setMoney(price - value > 0 ? price - value : 0);
+            offers.add(o);
+        }
+
+        return offers;
+    }
+
+    //Prepares a list of books which we want to buy
+    private ArrayList<BookInfo> putOutAd() {
+        ArrayList<BookInfo> books = new ArrayList<BookInfo>();
+
+        //choose a book from goals to buy
+        BookInfo bi = new BookInfo();
+        bi.setBookName(myGoal.get(rnd.nextInt(myGoal.size())).getBook().getBookName());
+        books.add(bi);
+
+        return books;
     }
 
     //map book ids to goals, index in array represents goal
@@ -135,27 +134,6 @@ public class qwertyuiop extends Agent {
         myBookNames = new ArrayList<>();
 
         for (BookInfo bi : myBooks) myBookNames.add(bi.getBookName());
-    }
-
-    private void LogState() {
-        System.out.printf("%50s:\n", this.getName());
-        System.out.println(this.myBooks);
-        System.out.println(this.myGoal);
-        System.out.println(this.myMoney);
-    }
-
-    //We just bought these books for that price.
-    private void boughtBooks(ArrayList<BookInfo> recieve, ArrayList<BookInfo> priceBooks, double price)
-    {
-        System.out.printf("BUY: %s recieved %f" + (priceBooks.size() > 0 ?  "and " : ""), this.getName(), price);System.out.println(priceBooks);
-        System.out.printf("BUY: in exchange for "); System.out.println(recieve);
-    }
-
-    //We just sold these books for that price.
-    private void soldBooks(ArrayList<BookInfo> recieve, ArrayList<BookInfo> priceBooks, double price)
-    {
-        System.out.printf("BUY: %s gave %f" + (priceBooks.size() > 0 ?  "and " : ""), this.getName(), price);System.out.println(priceBooks);
-        System.out.printf("SELL: in exchange for "); System.out.println(recieve);
     }
 
     @Override
@@ -247,7 +225,7 @@ public class qwertyuiop extends Agent {
                     addBehaviour(new MainTickerBehaviour(myAgent));
 
                     //add a behavior which tries to buy a book every two seconds
-                    addBehaviour(new TradingBehaviour(myAgent, 2000));
+                    addBehaviour(new TradingBehaviour(myAgent));
 
                     //add a behavior which sells book to other agents
                     addBehaviour(new SellBook(myAgent, MessageTemplate.MatchPerformative(ACLMessage.CFP)));
@@ -280,7 +258,6 @@ public class qwertyuiop extends Agent {
 
             @Override
             protected void onTick() {
-                LogState();
                 ticks++;
             }
         }
@@ -289,8 +266,8 @@ public class qwertyuiop extends Agent {
         class TradingBehaviour extends TickerBehaviour {
 
 
-            public TradingBehaviour(Agent a, long period) {
-                super(a, period);
+            public TradingBehaviour(Agent a) {
+                super(a, TICK_PERIOD);
             }
 
             @Override
@@ -317,12 +294,7 @@ public class qwertyuiop extends Agent {
                         buyBook.addReceiver(dfad.getName());
                     }
 
-                    ArrayList<BookInfo> bis = new ArrayList<BookInfo>();
-
-                    //choose a book from goals to buy
-                    BookInfo bi = new BookInfo();
-                    bi.setBookName(myGoal.get(rnd.nextInt(myGoal.size())).getBook().getBookName());
-                    bis.add(bi);
+                    ArrayList<BookInfo> bis = putOutAd();
 
                     SellMeBooks smb = new SellMeBooks();
                     smb.setBooks(bis);
@@ -375,8 +347,6 @@ public class qwertyuiop extends Agent {
                     mt.setReceivingBooks(shouldReceive);
                     mt.setReceivingMoney(0.0);
 
-                    boughtBooks(shouldReceive, c.getOffer().getBooks(), c.getOffer().getMoney());
-
                     ServiceDescription sd = new ServiceDescription();
                     sd.setType("environment");
                     DFAgentDescription dfd = new DFAgentDescription();
@@ -408,11 +378,15 @@ public class qwertyuiop extends Agent {
             //process the offers from the sellers
             @Override
             protected void handleAllResponses(Vector responses, Vector acceptances) {
-
                 Iterator it = responses.iterator();
 
                 //we need to accept only one offer, otherwise we create two transactions with the same ID
-                boolean accepted = false;
+
+                ACLMessage bestACLm = null;
+                Chosen bestChosen = null;
+                ArrayList<BookInfo> books = null;
+                double bestValue = 0;
+
                 while (it.hasNext()) {
                     ACLMessage response = (ACLMessage) it.next();
 
@@ -425,26 +399,22 @@ public class qwertyuiop extends Agent {
                         ce = getContentManager().extractContent(response);
 
                         ChooseFrom cf = (ChooseFrom) ce;
-                        double value = getBooksValue(cf.getWillSell());
 
                         ArrayList<Offer> offers = cf.getOffers();
-                        if (offers == null) continue;
+                        double value = getBooksValue(cf.getWillSell());
 
                         //find out which offers we can fulfill (we have all requested books and enough money)
-                        ArrayList<Offer> worthIt = new ArrayList<Offer>();
-                        for (Offer o: offers) {
-                            if (o == null) continue;
-
-                            // not enough money
+                        //do not sel books that are in goal
+                        ArrayList<Offer> canFulfill = new ArrayList<Offer>();
+                        for (Offer o : offers) {
                             if (o.getMoney() > myMoney) continue;
-
-                            //not worth it
-                            if (o.getMoney() + getBooksValue(o.getBooks()) > value) continue;
+                            if (o.getMoney() > value) continue;
 
                             boolean foundAll = true;
                             if (o.getBooks() != null)
                                 for (BookInfo bi : o.getBooks()) {
                                     String bn = bi.getBookName();
+
                                     boolean found = false;
                                     for (int j = 0; j < myBooks.size(); j++) {
                                         if (myBooks.get(j).getBookName().equals(bn)) {
@@ -460,42 +430,58 @@ public class qwertyuiop extends Agent {
                                 }
 
                             if (foundAll) {
-                                worthIt.add(o);
+                                canFulfill.add(o);
                             }
                         }
 
-                        worthIt.sort((o1, o2) -> getBooksValue(o1.getBooks())+o1.getMoney() < getBooksValue(o2.getBooks())+o2.getMoney() ? -1 : 1);
-
                         //if none, we REJECT the proposal, we also reject all proposal if we already accepted one
-                        if (worthIt.size() == 0 || accepted) {
+                        if (canFulfill.size() == 0) {
                             ACLMessage acc = response.createReply();
                             acc.setPerformative(ACLMessage.REJECT_PROPOSAL);
                             acceptances.add(acc);
                             continue;
                         }
 
+
                         ACLMessage acc = response.createReply();
-                        acc.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-                        accepted = true;
-
-                        //choose an offer
                         Chosen ch = new Chosen();
-                        ch.setOffer(worthIt.get(0));
+                        canFulfill.sort((o1, o2) -> getOfferValue(o1) < getOfferValue(o2) ? -1 : 1);
+                        ch.setOffer(canFulfill.get(0));
 
-                        c = ch;
-                        shouldReceive = cf.getWillSell();
+                        double addedValue = value - getOfferValue(ch.getOffer());
+                        if (addedValue > bestValue) {
+                            if (bestACLm != null) {
+                                bestACLm.setPerformative(ACLMessage.REJECT_PROPOSAL);
+                                acceptances.add(bestACLm);
+                            }
 
-                        getContentManager().fillContent(acc, ch);
-                        acceptances.add(acc);
-
+                            bestACLm = acc;
+                            bestChosen = ch;
+                            bestValue = addedValue;
+                            books = cf.getWillSell();
+                        }
                     } catch (Codec.CodecException e) {
                         e.printStackTrace();
                     } catch (OntologyException e) {
                         e.printStackTrace();
                     }
-
                 }
 
+                try {
+                    if (bestACLm == null) return;
+
+                    c = bestChosen;
+                    shouldReceive = books;
+
+                    bestACLm.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+                    getContentManager().fillContent(bestACLm, bestChosen);
+                    acceptances.add(bestACLm);
+
+                } catch (Codec.CodecException e) {
+                    e.printStackTrace();
+                } catch (OntologyException e) {
+                    e.printStackTrace();
+                }
             }
         }
 
@@ -530,9 +516,9 @@ public class qwertyuiop extends Agent {
                     ArrayList<BookInfo> sellBooks = new ArrayList<BookInfo>();
 
                     //find out, if we have books the agent wants
-                    for(BookInfo advBook : books){
+                    for (BookInfo advBook : books) {
                         boolean found = false;
-                        for(BookInfo myBook:myBooks) {
+                        for (BookInfo myBook : myBooks) {
                             if (myBook.getBookName().equals(advBook.getBookName())) {
                                 sellBooks.add(myBook);
                                 found = true;
@@ -599,8 +585,6 @@ public class qwertyuiop extends Agent {
 
                     mt.setReceivingBooks(c.getOffer().getBooks());
                     mt.setReceivingMoney(c.getOffer().getMoney());
-
-                    soldBooks(cf.getWillSell(), c.getOffer().getBooks(), c.getOffer().getMoney());
 
                     ServiceDescription sd = new ServiceDescription();
                     sd.setType("environment");
