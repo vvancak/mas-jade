@@ -1,26 +1,33 @@
 apply plugin: 'application'
 
 repositories {
-	mavenCentral()
-	maven {
-		url "http://jade.tilab.com/maven"
-	}
+    mavenCentral()
+    maven {
+        url "http://jade.tilab.com/maven"
+    }
 }
 
 dependencies {
-	compile group: 'com.tilab.jade', name: 'jade', version: '4.4.0'
+    compile group: 'com.tilab.jade', name: 'jade', version: '4.4.0'
 }
 
 // this project uses non-standard layout
-sourceSets{main{java{srcDir 'src'}}}
+sourceSets { main { java { srcDir 'src' } } }
 
 mainClassName = 'jade.Boot'
 run {
-        args = ['-agents', 'environment:mas.cv4.Environment;' +
-				'random1:mas.cv4.BookTrader;' +
-				'random2:mas.cv4.BookTrader;' +
-				'random3:mas.cv4.BookTrader;' +
-				'qwertyuiop_i:mas.cv4.qwertyuiop;' +
-				'qwertyuiop_i:mas.cv4.qwertyuiop;' +
-				'qwertyuiop_iii:mas.cv4.qwertyuiop_iii']
+    args = ['-agents', 'environment:mas.cv4.Environment;' +
+            'random1:mas.cv4.BookTrader;' +
+            'random2:mas.cv4.BookTrader;' +
+            'random3:mas.cv4.BookTrader;' +
+            'qwertyuiop_1:mas.cv4.qwertyuiop;' +
+            'qwertyuiop_2:mas.cv4.qwertyuiop;' +
+            'qwertyuiop_3:mas.cv4.qwertyuiop;' +
+            'qwertyuiop_ii_1:mas.cv4.qwertyuiop_ii;' +
+            'qwertyuiop_ii_2:mas.cv4.qwertyuiop_ii;' +
+            'qwertyuiopi_ii_3:mas.cv4.qwertyuiop_ii;' +
+            'qwertyuiop_iv_1:mas.cv4.qwertyuiop_iv;' +
+            'qwertyuiop_iv_2:mas.cv4.qwertyuiop_iv;' +
+            'qwertyuiop_iv_3:mas.cv4.qwertyuiop_iv'
+    ]
 }
