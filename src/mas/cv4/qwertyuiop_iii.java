@@ -19,8 +19,8 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.proto.*;
 import mas.cv4.onto.*;
-import sun.rmi.runtime.Log;
 
+import java.awt.print.Book;
 import java.util.*;
 
 public class qwertyuiop_iii extends Agent {
@@ -30,15 +30,17 @@ public class qwertyuiop_iii extends Agent {
 
     Random rnd = new Random();
 
-    static final double MIN_SELL_QUOT = 1.1;
-    static final double MAX_SELL_QUOT = 1.5;
-    static final double TRASH_PER_REQUESTED_BOOK = 0.0;
-
     //Time after which book prices are updated
     static int ticks = 0;
     static final int TICK_PERIOD = 500;
     static final int TOTAL_TIME = 3000 * 60 * 3;
-    static final int totalTicks = TOTAL_TIME / TICK_PERIOD;
+    static final int TOTAL_TICKS = TOTAL_TIME / TICK_PERIOD;
+
+    static final double MIN_SELL_QUOT = 1.1;
+    static final double MAX_SELL_QUOT = 1.5;
+
+    static final double TRASH_GAME_PHASE = 0.5 * TOTAL_TICKS;
+    static final double TRASH_PROB = 0.5;
 
     ArrayList<BookInfo> myBooks;
     ArrayList<String> myBookNames;
@@ -60,20 +62,19 @@ public class qwertyuiop_iii extends Agent {
             }
         }
 
-        double decayRate = getAverageGoalBookValue() / totalTicks;
+        double decayRate = getAverageGoalBookValue() / TOTAL_TICKS;
         double decayedBookValue = getAverageGoalBookValue() - decayRate;
         return decayedBookValue > 0 ? decayedBookValue : 1;
     }
 
+    private double getBooksValue(ArrayList<BookInfo> books) {
+        double value = 0;
+        for (BookInfo bi : books) value += getBookValue(bi);
+        return value;
+    }
+
     private double getOfferValue(Offer offer) {
-        double price = 0;
-        if (offer.getMoney() > 0) price = offer.getMoney();
-        if (offer.getBooks() != null) {
-            for (BookInfo book : offer.getBooks()) {
-                price += getBookValue(book);
-            }
-        }
-        return price;
+        return offer.getMoney() + getBooksValue(offer.getBooks());
     }
 
     // Willing to sell books for (actual_value) * ( 1 + random number between minimum and maximum added value)
@@ -86,30 +87,26 @@ public class qwertyuiop_iii extends Agent {
     private ArrayList<Offer> createOffers(ArrayList<BookInfo> books) {
         ArrayList<Offer> offers = new ArrayList<Offer>();
 
+        ArrayList<BookInfo> offerBooks = new ArrayList<>();
         for (BookInfo requestedBook : books) {
             if (!myBookNames.contains(requestedBook.getBookName())) continue;
 
             // Add requested book
-            ArrayList<BookInfo> offerBooks = new ArrayList<>();
             offerBooks.add(requestedBook);
-
-            // Add random trash if we have any books left
-            if (myBooks.size() > 2) {
-                while (rnd.nextDouble() < TRASH_PER_REQUESTED_BOOK) {
-                    int index = rnd.nextInt(myBooks.size());
-                    BookInfo randomBook = myBooks.get(index);
-
-                    // Prevent randomming requested book
-                    if (offerBooks.contains(randomBook)) break;
-                    else offerBooks.add(randomBook);
-                }
-            }
-
-            Offer o = new Offer();
-            o.setBooks(offerBooks);
-            o.setMoney(getSellOfferValue(o));
-            offers.add(o);
         }
+
+        if (ticks > TRASH_GAME_PHASE) {
+            while (rnd.nextDouble() < TRASH_PROB) {
+                int index = rnd.nextInt(myBooks.size());
+                BookInfo bi = myBooks.get(index);
+                if (!offerBooks.contains(bi)) offerBooks.add(bi);
+            }
+        }
+
+        Offer o = new Offer();
+        o.setBooks(offerBooks);
+        o.setMoney(getSellOfferValue(o));
+        offers.add(o);
 
         return offers;
     }
@@ -125,6 +122,7 @@ public class qwertyuiop_iii extends Agent {
     }
 
     private void LogState() {
+        if (true) return;
         System.out.printf("%50s:\n", this.getName());
         System.out.println(this.myBooks);
         System.out.println(this.myGoal);
@@ -423,13 +421,14 @@ public class qwertyuiop_iii extends Agent {
                         ChooseFrom cf = (ChooseFrom) ce;
 
                         ArrayList<Offer> offers = cf.getOffers();
+                        double value = getBooksValue(cf.getWillSell());
 
                         //find out which offers we can fulfill (we have all requested books and enough money)
                         //do not sel books that are in goal
                         ArrayList<Offer> canFulfill = new ArrayList<Offer>();
                         for (Offer o : offers) {
                             if (o.getMoney() > myMoney) continue;
-                            if (o.getMoney() > getOfferValue(o)) continue;
+                            if (o.getMoney() > value) continue;
 
                             boolean foundAll = true;
                             if (o.getBooks() != null)
@@ -469,7 +468,8 @@ public class qwertyuiop_iii extends Agent {
 
                         //choose an offer
                         Chosen ch = new Chosen();
-                        ch.setOffer(canFulfill.get(rnd.nextInt(canFulfill.size())));
+                        canFulfill.sort((o1, o2) -> getOfferValue(o1) < getOfferValue(o2) ? -1 : 1);
+                        ch.setOffer(canFulfill.get(0));
 
                         c = ch;
                         shouldReceive = cf.getWillSell();
@@ -517,27 +517,17 @@ public class qwertyuiop_iii extends Agent {
                     SellMeBooks smb = (SellMeBooks) ac.getAction();
                     ArrayList<BookInfo> books = smb.getBooks();
 
-                    ArrayList<BookInfo> sellBooks = new ArrayList<BookInfo>();
+                    ChooseFrom cf = new ChooseFrom();
+                    ArrayList<Offer> offers = createOffers(books);
 
-                    //find out, if we have books the agent wants
-                    for (int i = 0; i < books.size(); i++) {
-                        boolean found = false;
-                        for (int j = 0; j < myBooks.size(); j++) {
-                            if (myBooks.get(j).getBookName().equals(books.get(i).getBookName())) {
-                                sellBooks.add(myBooks.get(j));
-                                found = true;
-                                break;
-                            }
+                    ArrayList<BookInfo> offerBooks = new ArrayList<>();
+                    for (Offer o : offers) {
+                        for (BookInfo bi : o.getBooks()) {
+                            if (!offerBooks.contains(bi)) offerBooks.add(bi);
                         }
-                        if (!found)
-                            throw new RefuseException("");
                     }
 
-                    ArrayList<Offer> offers = createOffers(sellBooks);
-
-                    ChooseFrom cf = new ChooseFrom();
-
-                    cf.setWillSell(sellBooks);
+                    cf.setWillSell(offerBooks);
                     cf.setOffers(offers);
 
                     //send the offers
