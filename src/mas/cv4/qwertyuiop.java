@@ -53,8 +53,12 @@ public class qwertyuiop extends Agent {
         return (sum / myGoal.size());
     }
 
-    private double getOfferValue(Offer o) {
-        return o.getMoney() + getBooksValue(o.getBooks());
+    private double getSellOfferValue(Offer o) {
+        return getBooksValue(o.getBooks()) - o.getMoney();
+    }
+
+    private double getBuyOfferValue(Offer o) {
+        return o.getMoney() - getBooksValue(o.getBooks());
     }
 
     private double getBookValue(BookInfo book) {
@@ -114,7 +118,7 @@ public class qwertyuiop extends Agent {
 
             Offer off = new Offer();
             off.setBooks(offerBooks);
-            off.setMoney(getOfferValue(off));
+            off.setMoney(getSellBooksValue(offerBooks));
             offers.add(off);
         }
 
@@ -429,7 +433,7 @@ public class qwertyuiop extends Agent {
                         ArrayList<Offer> canFulfill = new ArrayList<Offer>();
                         for (Offer o : offers) {
                             if (o.getMoney() > myMoney) continue;
-                            if (o.getMoney() > value) continue;
+                            if (o.getMoney() < getBooksValue(o.getBooks())) continue;
 
                             boolean foundAll = true;
                             if (o.getBooks() != null)
@@ -466,10 +470,11 @@ public class qwertyuiop extends Agent {
 
                         ACLMessage acc = response.createReply();
                         Chosen ch = new Chosen();
-                        canFulfill.sort((o1, o2) -> getOfferValue(o1) < getOfferValue(o2) ? -1 : 1);
+                        canFulfill.sort((o1, o2) -> getSellOfferValue(o1) < getSellOfferValue(o2) ? -1 : 1);
                         ch.setOffer(canFulfill.get(0));
 
-                        double addedValue = value - getOfferValue(ch.getOffer());
+                        Offer offer = ch.getOffer();
+                        double addedValue = getSellOfferValue(offer) - offer.getMoney();
                         if (addedValue > bestValue) {
                             if (bestACLm != null) {
                                 bestACLm.setPerformative(ACLMessage.REJECT_PROPOSAL);
